@@ -1,3 +1,4 @@
+import mlflow
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -5,7 +6,7 @@ from sklearn.model_selection import train_test_split
 
 
 class RandomForestTrainer:
-    def train(self):
+    def train(self, correlationId: int):
         print("Entrenando modelo RandomForestClassifier")
         X, y = load_iris(return_X_y=True)
         feature_names = load_iris().feature_names
@@ -18,6 +19,9 @@ class RandomForestTrainer:
         # Entrenar modelo
         model = RandomForestClassifier(n_estimators=100, random_state=42)
         model.fit(X_train, y_train)
+
+        # Guardar modelo en MLFlow
+        mlflow.sklearn.log_model(model, f"random_forest_model-{correlationId}")
 
         print("Modelo entrenado")
         # Predicciones

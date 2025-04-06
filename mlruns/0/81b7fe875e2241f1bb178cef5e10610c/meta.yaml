@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/javieresmeradovela/Documents/dev/ml-no-code/ml-backend/mlruns/0/81b7fe875e2241f1bb178cef5e10610c/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 81b7fe875e2241f1bb178cef5e10610c
+run_name: selective-mink-577
+run_uuid: 81b7fe875e2241f1bb178cef5e10610c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1743868110852
+status: 1
+tags: []
+user_id: javieresmeradovela
