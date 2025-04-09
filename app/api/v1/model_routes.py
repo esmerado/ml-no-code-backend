@@ -3,25 +3,25 @@ import tempfile
 import traceback
 
 import pandas as pd
-from fastapi import APIRouter
-from fastapi import File, UploadFile, Form
+from fastapi import File, UploadFile, APIRouter, Depends, Form
 from fastapi.responses import JSONResponse
 from pycaret.regression import setup, compare_models, predict_model, pull
 
 from app.models.deepseek_client import DeepSeekClient
 from app.schemas.model_schema import TrainResponse
+from app.utils.auth import verify_token
 
 router = APIRouter()
 
 
-@router.get("/upload-dataset/{correlationId}", response_model=TrainResponse)
-def upload_dataset(correlationId: int):
+@router.get("/upload-dataset/{user_id}", response_model=TrainResponse)
+def upload_dataset(user_id: int):
     """
     Endpoint to upload a dataset for training.
     """
     # Here you would typically handle the file upload and save it to a location
     # For now, we will just return a success message
-    return {"message": "Dataset uploaded successfully", "correlationId": correlationId}
+    return {"message": "Dataset uploaded successfully", "user_id": user_id}
 
 
 def build_model_prompt(model: str, metrics: list, predictions: list) -> str:
@@ -48,42 +48,39 @@ def build_model_prompt(model: str, metrics: list, predictions: list) -> str:
 
 
 @router.post("/train-model/csv/{correlationId}", response_model=TrainResponse)
-async def train_model_csv(file: UploadFile = File(...), target: str = Form(...)):
+async def train_model_csv(
+        correlationId: int,
+        file: UploadFile = File(...),
+        target: str = Form(...),
+        user: dict = Depends(verify_token)
+):
     try:
-        print(f"Received file: {file.filename}")
-        # Guardar el CSV temporalmente
+        print(f"🔐 Usuario autenticado: {user.get('email')}")
+        print(f"📁 Archivo recibido: {file.filename}")
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
             contents = await file.read()
             tmp.write(contents)
             tmp_path = tmp.name
 
-        print(f"Temporary file created at: {tmp_path}")
-        # Leer el CSV
+        print(f"📌 CSV temporal guardado en: {tmp_path}")
         df = pd.read_csv(tmp_path)
 
-        print(f"DataFrame shape: {df.shape}")
+        print(f"📊 DataFrame con forma: {df.shape}")
         if target not in df.columns:
-            print(f"La columna '{target}' no existe en el DataFrame.")
             return JSONResponse(status_code=400, content={"error": f"La columna '{target}' no existe en el archivo."})
 
-        print(f"Target column: {target}, {df[target].nunique() < 2}")
-        # Configurar PyCaret
+        print(f"🎯 Columna objetivo: {target}")
         setup(data=df, target=target, verbose=False, session_id=123)
+        print("✅ PyCaret setup hecho.")
 
-        print("PyCaret setup completed.")
-        # Comparar modelos
         best_model = compare_models()
-        print(f"Best model: {best_model}")
-        # Predecir en el mismo dataset
         predictions = predict_model(best_model, data=df)
-        results = pull()  # Métricas de evaluación del modelo
+        results = pull()
 
-        print(f"Model results: {results}")
-        # Limpiar archivo temporal
         os.remove(tmp_path)
 
         columns_to_return = [col for col in ['Label', target] if col in predictions.columns]
-
         prediction_sample = predictions[columns_to_return].head(10).to_dict(orient="records")
 
         model_results = {
@@ -97,16 +94,12 @@ async def train_model_csv(file: UploadFile = File(...), target: str = Form(...))
             metrics=model_results["metrics"],
             predictions=model_results["predictions"]
         )
-
         prompt_result = DeepSeekClient().get_response(prompt)
 
-        result = model_results.copy()
-        result["summary"] = prompt_result
+        model_results["summary"] = prompt_result
 
-        # Devolver un resumen
-        return result
+        return model_results
 
     except Exception as e:
-        print("Error durante el entrenamiento:")
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
