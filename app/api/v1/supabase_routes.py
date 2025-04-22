@@ -1,7 +1,14 @@
 import os
+import tempfile
+import uuid
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
 from supabase import create_client
+
+from app.utils.auth import verify_token
+from app.utils.s3_upload import upload_file_to_supabase
 
 router = APIRouter()
 
@@ -33,6 +40,39 @@ async def sync_user(request: Request):
     }).execute()
 
     return {"message": "Usuario guardado", "user": res.data}
+
+
+@router.get("/dataset/upload")
+async def upload_file(file: UploadFile = File(...), user: dict = Depends(verify_token)):
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+            contents = await file.read()
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        print("FILE:", tmp)
+        file_url = upload_file_to_supabase(tmp_path, user.get("sub"))
+
+        print("usuario", user.get("sub"), user.get("id"))
+        user_id = user.get("sub") or user.get("id")
+        if file_url:
+            existing = supabase.table("datasets").select("*").eq("file_url", file_url).execute()
+
+            if existing.data:
+                return {"message": "Un dataset con esta url ya existe"}
+            res = supabase.table("datasets").insert({
+                "id": uuid.uuid4(),
+                "user_id": user_id,
+                "filename": tmp.filename,
+                "file_url": file_url,
+                "file_type": file.content_type,
+            }).execute()
+
+        os.remove(tmp_path)
+        return {"message": "Archivo subido correctamente", "url": file_url}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.get("/models")

@@ -7,8 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 
-from app.api.v1 import model_routes
-from app.api.v1 import supabase_routes
+from app.api.v1 import landing_routes
 
 app = FastAPI()
 
@@ -21,6 +20,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(model_routes.router, prefix="/ml_backend/v1")
-app.include_router(supabase_routes.router, prefix="/ml_backend/v1")
+#
+# app.include_router(model_routes.router, prefix="/ml_backend/v1")
+# app.include_router(supabase_routes.router, prefix="/ml_backend/v1")
+app.include_router(landing_routes.router, prefix="/ml_backend/v1")
