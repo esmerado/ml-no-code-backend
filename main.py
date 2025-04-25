@@ -14,6 +14,7 @@ from app.api.v1 import landing_routes
 app = FastAPI()
 print("📦 Railway ENV VARS:", dict(os.environ))
 
+# client = OpenAI()
 logging.basicConfig(level=logging.DEBUG)
 
 app.add_middleware(

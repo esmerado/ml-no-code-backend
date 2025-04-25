@@ -15,20 +15,15 @@ def get_supabase_client():
 
 @router.post("/landing/new-email")
 async def add_user(request: Request):
-    print("📩 Recibida petición al endpoint /new-email")
     body = await request.json()
     email = body.get("email")
-    print("📩 email:", email)
+    suggestions = body.get("suggestions")
 
     supabase = get_supabase_client()
 
     res = supabase.table("emails").insert({
         "email": email,
+        "suggestions": suggestions,
     }).execute()
 
-    return {"message": "Usuario guardado", "user": res.data}
-
-
-@router.get("/")
-def root():
-    return {"message": "API working"}
+    return {"message": "Usuario guardado"}
