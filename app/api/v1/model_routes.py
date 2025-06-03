@@ -6,6 +6,7 @@ from app.utils.auth import verify_token
 router = APIRouter()
 
 
+# Para modelos de no mucho tamaño
 @router.post("/models/train")
 async def model_train(file: UploadFile = File(...),
                       target: str = Form(...),
