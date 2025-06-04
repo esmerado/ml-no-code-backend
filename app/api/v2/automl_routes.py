@@ -48,7 +48,6 @@ def train(req: TrainRequest,
           user: dict = Depends(verify_token)):
     user_id = user.get("id")
     user_type = user.get("user_type")
-    print('Post /api/automl-train called by user:', user_id, 'type:', user_type)
 
     try:
 

@@ -1,3 +1,4 @@
+import os
 import pickle
 import uuid
 
@@ -14,50 +15,41 @@ def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_mod
     download_file_from_s3(s3_dataset_path, local_csv_path)
 
     df = pd.read_csv(local_csv_path)
-    print("✅ CSV file loaded successfully")
     X = df.drop(columns=[target_column])
-    print("✅ Features separated from target column")
     y = df[target_column]
 
-    print("✅ Data loaded and target column separated")
     # Dividir dataset
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    print("✅ Dataset split into train and test sets")
     # AutoML con FLAML
     automl = AutoML()
     automl_settings = {
-        "time_budget": 120,  # segundos
+        "time_budget": 120,
         "metric": "accuracy",
         "task": "classification",
         "log_file_name": f"/tmp/flaml_{uuid.uuid4()}.log",
     }
 
-    print("✅ AutoML settings configured")
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
     y_pred = automl.predict(X_test)
 
     df_test, metrics = generate_prediction_report(automl, X_test, y_test, problem_type="classification")
 
-    # Guardar modelo
     model_id = str(uuid.uuid4())
-    print("✅ Entrenamiento completo, modelo listo para guardar.")
-    print("✅ Entrenamiento completo, modelo listo para guardar.")
+
     local_model_path = f"/tmp/{model_id}.pkl"
     with open(local_model_path, "wb") as f:
         pickle.dump(automl, f)
-    print(f"💾 Modelo guardado en {local_model_path}")
 
     # Subir modelo a S3
     with open(local_model_path, "rb") as f:
         file_bytes = f.read()
 
     output_path = f"{s3_model_output_path}/{model_id}.pkl"
-    # Extrae filename del output_model_s3_path
+
     filename = output_path.split("/")[-1]
     folder = "/".join(output_path.split("/")[:-1])
-    print(f"📂 Carpeta de destino: {folder}, Nombre del archivo: {filename}")
 
     upload_file_to_s3(file_bytes, filename, folder)
     return model_id, metrics, df_test
@@ -86,3 +78,18 @@ def predict_from_s3(model_s3_path: str, input_data_s3_path: str):
     df_result = df_result.replace([float('inf'), float('-inf')], None).where(pd.notnull(df_result), None)
 
     return df_result.to_dict(orient="records")
+
+
+# TODO: Esto es para guardar los datos
+def save_test_data_to_s3(df_test: pd.DataFrame, user_id: str, model_id: str):
+    local_path = f"/tmp/{uuid.uuid4()}_test.csv"
+    df_test.to_csv(local_path, index=False)
+
+    filename = f"{model_id}_test_data.csv"
+    folder = f"reports/{user_id}"
+
+    with open(local_path, "rb") as f:
+        file_bytes = f.read()
+
+    s3_key = upload_file_to_s3(file_bytes, filename, folder)
+    return f"s3://{os.getenv('S3_BUCKET_NAME')}/{s3_key}"
