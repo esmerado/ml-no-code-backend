@@ -38,6 +38,21 @@ def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_mod
 
     model_id = str(uuid.uuid4())
 
+    # Guardar df_test como CSV local
+    local_test_name = f"df_test_{model_id}.csv"
+    local_test_path = f"/tmp/{local_test_name}"
+    df_test.to_csv(local_test_path, index=False)
+
+    # Subir df_test a S3
+    with open(local_test_path, "rb") as f:
+        df_test_bytes = f.read()
+
+    data_output_path = f"{s3_model_output_path}/{local_test_name}"
+    test_filename = data_output_path.split("/")[-1]
+    test_folder = "/".join(data_output_path.split("/")[:-1])
+    print(f"Subiendo df_test a S3: {data_output_path}")
+    upload_file_to_s3(df_test_bytes, test_filename, test_folder)
+
     local_model_path = f"/tmp/{model_id}.pkl"
     with open(local_model_path, "wb") as f:
         pickle.dump(automl, f)
@@ -46,13 +61,14 @@ def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_mod
     with open(local_model_path, "rb") as f:
         file_bytes = f.read()
 
-    output_path = f"{s3_model_output_path}/{model_id}.pkl"
+    model_output_path = f"{s3_model_output_path}/{model_id}.pkl"
 
-    filename = output_path.split("/")[-1]
-    folder = "/".join(output_path.split("/")[:-1])
+    filename = model_output_path.split("/")[-1]
+    folder = "/".join(model_output_path.split("/")[:-1])
 
     upload_file_to_s3(file_bytes, filename, folder)
-    return model_id, metrics, df_test
+    # TODO: Revisar si devolver el df_test es lo correcto o debería tratarlo para que devuelva también el rmse.
+    return model_id, metrics, df_test, model_output_path, data_output_path
 
 
 def predict_from_s3(model_s3_path: str, input_data_s3_path: str):

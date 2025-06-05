@@ -4,6 +4,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import HTTPException, Depends, APIRouter
+from pydantic import BaseModel
 from supabase import create_client
 
 from app.utils.auth import verify_token
@@ -43,3 +44,29 @@ async def sync_user(user: dict = Depends(verify_token)):
         "user_id": res.data[0]["id"],
         "user_type": res.data[0]["user_type"]
     }
+
+
+class AddToWaitlistRequest(BaseModel):
+    email: str
+    suggestions: str = None
+
+
+@router.post("/waitlist")
+def add_to_waitlist(request: AddToWaitlistRequest):
+    email = request.email
+    suggestions = request.suggestions
+    print("Adding to waitlist:", email, suggestions)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    existing = supabase.table("emails").select("*").eq("email", email).execute()
+
+    if existing.data:
+        return {"message": "Email already in waitlist"}
+
+    res = supabase.table("emails").insert({"email": email, "suggestions": suggestions}).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to add to waitlist")
+
+    return {"message": "Email added to waitlist"}

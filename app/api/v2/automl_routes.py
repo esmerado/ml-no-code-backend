@@ -51,18 +51,20 @@ def train(req: TrainRequest,
 
     try:
 
-        model_id, metrics, df_test = train_from_s3(
+        model_id, metrics, df_test, model_output_path, data_output_path = train_from_s3(
             user_id,
             req.dataset_s3_path,
             req.target_column,
             f"{FREEMIUM_BUCKET_NAME}/{user_id}"
         )
 
+        print("Llego a save model metadata", model_output_path, data_output_path)
         save_model_metadata(
             user_id,
             model_id,
             req.target_column,
-            req.output_model_s3_path,
+            model_output_path,
+            data_output_path,
             metrics
         )
 
@@ -72,7 +74,7 @@ def train(req: TrainRequest,
         return {
             "model_id": model_id,
             "metrics": metrics,
-            "test_data": df_test_preview.to_dict(orient="records"),
+            "data": df_test_preview.to_dict(orient="records"),
         }
 
     except Exception as e:
@@ -81,7 +83,7 @@ def train(req: TrainRequest,
 
 class PredictRequest(BaseModel):
     model_s3_path: str
-    input_data_s3_path: str  # CSV con datos sin la columna target
+    input_data_s3_path: str
 
 
 @router.post("/api/automl-predict")
