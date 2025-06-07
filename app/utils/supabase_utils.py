@@ -10,19 +10,33 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_MINDLESSML_SERVICE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
-def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path, metrics):
+def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path, metrics, name, task_type):
     print("Saving model metadata to Supabase...")
+
     data = {
+        "name": name,
         "user_id": user_id,
         "model_id": model_id,
         "target_column": target_column,
         "model_s3_path": s3_path,
         "model_s3_data_path": data_s3_path,
-        "accuracy": metrics["accuracy"],
-        "f1_score": metrics["f1_score"],
-        "precision": metrics["precision"],
-        "recall": metrics["recall"],
+        "model_type": task_type,
     }
+    print("metrics:", metrics, )
+    if task_type == "classification":
+        data.update({
+            "accuracy": metrics.get("accuracy"),
+            "f1_score": metrics.get("f1_score"),
+            "precision": metrics.get("precision"),
+            "recall": metrics.get("recall"),
+        })
+    else:
+        data.update({
+            "rmse": metrics.get("mse"),
+            "mae": metrics.get("mae"),
+            "r2": metrics.get("r2"),
+        })
+
     print("Saving model metadata:", data)
     supabase.table("models").insert(data).execute()
 

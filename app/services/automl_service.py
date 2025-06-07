@@ -1,4 +1,3 @@
-import os
 import pickle
 import uuid
 
@@ -6,12 +5,13 @@ import pandas as pd
 from flaml import AutoML
 from sklearn.model_selection import train_test_split
 
+from app.utils.models_utils import infer_task_type
 from app.utils.reports_utils import generate_prediction_report
 from app.utils.s3_utils import download_file_from_s3, upload_file_to_s3
 
 
-def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_model_output_path: str):
-    local_csv_path = f"/tmp/{uuid.uuid4()}.csv"
+def train_from_s3(user_id: str, model_id: str, s3_dataset_path: str, target_column: str, s3_model_output_path: str):
+    local_csv_path = f"/tmp/{model_id}.csv"
     download_file_from_s3(s3_dataset_path, local_csv_path)
 
     df = pd.read_csv(local_csv_path)
@@ -23,20 +23,20 @@ def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_mod
 
     # AutoML con FLAML
     automl = AutoML()
+    task_type = infer_task_type(y)
+
     automl_settings = {
         "time_budget": 120,
-        "metric": "accuracy",
-        "task": "classification",
-        "log_file_name": f"/tmp/flaml_{uuid.uuid4()}.log",
+        "metric": "accuracy" if task_type == "classification" else "rmse",
+        "task": task_type,
+        "log_file_name": f"/tmp/flaml_{model_id}.log",
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
     y_pred = automl.predict(X_test)
 
-    df_test, metrics = generate_prediction_report(automl, X_test, y_test, problem_type="classification")
-
-    model_id = str(uuid.uuid4())
+    df_test, metrics = generate_prediction_report(automl, X_test, y_test, problem_type=task_type)
 
     # Guardar df_test como CSV local
     local_test_name = f"df_test_{model_id}.csv"
@@ -68,7 +68,7 @@ def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_mod
 
     upload_file_to_s3(file_bytes, filename, folder)
     # TODO: Revisar si devolver el df_test es lo correcto o debería tratarlo para que devuelva también el rmse.
-    return model_id, metrics, df_test, model_output_path, data_output_path
+    return model_id, task_type, metrics, df_test, model_output_path, data_output_path
 
 
 def predict_from_s3(model_s3_path: str, input_data_s3_path: str):
@@ -94,18 +94,3 @@ def predict_from_s3(model_s3_path: str, input_data_s3_path: str):
     df_result = df_result.replace([float('inf'), float('-inf')], None).where(pd.notnull(df_result), None)
 
     return df_result.to_dict(orient="records")
-
-
-# TODO: Esto es para guardar los datos
-def save_test_data_to_s3(df_test: pd.DataFrame, user_id: str, model_id: str):
-    local_path = f"/tmp/{uuid.uuid4()}_test.csv"
-    df_test.to_csv(local_path, index=False)
-
-    filename = f"{model_id}_test_data.csv"
-    folder = f"reports/{user_id}"
-
-    with open(local_path, "rb") as f:
-        file_bytes = f.read()
-
-    s3_key = upload_file_to_s3(file_bytes, filename, folder)
-    return f"s3://{os.getenv('S3_BUCKET_NAME')}/{s3_key}"

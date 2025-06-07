@@ -41,9 +41,10 @@ supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
 class TrainRequest(BaseModel):
+    model_id: str
+    model_name: str
     dataset_s3_path: str
     target_column: str
-    output_model_s3_path: str
 
 
 @router.post("/api/automl-train")
@@ -54,21 +55,23 @@ def train(req: TrainRequest,
 
     try:
 
-        model_id, metrics, df_test, model_output_path, data_output_path = train_from_s3(
+        model_id, task_type, metrics, df_test, model_output_path, data_output_path = train_from_s3(
             user_id,
+            req.model_id,
             req.dataset_s3_path,
             req.target_column,
             f"{FREEMIUM_BUCKET_NAME}/{user_id}"
         )
 
-        print("Llego a save model metadata", model_output_path, data_output_path)
         save_model_metadata(
             user_id,
             model_id,
             req.target_column,
             model_output_path,
             data_output_path,
-            metrics
+            metrics,
+            req.model_name,
+            task_type
         )
 
         df_test_2 = df_test.replace([np.inf, -np.inf], np.nan).fillna(value="null")
@@ -118,5 +121,30 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
         table_data = json.loads(table_df.to_json(orient="records"))
 
         return {"model_data": model_data, "table_data": table_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/remove-model/{model_id}")
+def get_model_info(model_id: str, user: dict = Depends(verify_token)):
+    try:
+        print(f"Deleting model with ID: {model_id}")
+        user_id = user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Delete model metadata from Supabase
+        supabase.table("models").delete().eq("model_id", model_id).execute()
+
+        # Optionally delete the model file from S3
+        s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/{model_id}.pkl"
+        s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
+
+        # Delete the model data from S3
+        data_s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/df_test_{model_id}.csv"
+        s3.delete_object(Bucket=BUCKET_NAME, Key=data_s3_key)
+
+        return {"message": "Model deleted successfully"}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -44,36 +44,25 @@ async def upload_dataset(
         target_column: str = "target",
         user: dict = Depends(verify_token)
 ):
-    print("🔐 User", user)
     user_id = user.get("id")
-    print("🔐 User ID:", user_id)
-    file_id = f"{uuid4()}_{file.filename}"
+
+    uuid = uuid4()
+
+    file_id = f"freemium/{user_id}/{uuid}_{file.filename}"
     contents = await file.read()
 
     try:
-        print("✅ AWS identity:", boto3.client("sts").get_caller_identity())
-        print("Uploading file to S3... -> BUCKET_NAME:", BUCKET_NAME)
         s3.upload_fileobj(
             Fileobj=bytes_to_fileobj(contents),
             Bucket=BUCKET_NAME,
             Key=file_id
         )
-        print("File uploaded to S3:", file_id)
-        s3_path = f"s3://{BUCKET_NAME}/{file_id}"
-        print("File s3_path:", s3_path)
 
-        data_body = {
-            "id": file_id,
-            "user_id": user_id,
-            "s3_path": s3_path,
-            "target_column": target_column,
-        }
-        supabase.table("datasets").insert(data_body).execute()
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Upload S3 failed: {e}")
 
-    return {"message": "Archivo subido", "s3_key": file_id}
+    return {"message": "Archivo subido", "s3_key": file_id, "model_id": uuid}
 
 
 class TrainRequest(BaseModel):
