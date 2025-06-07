@@ -7,7 +7,7 @@ from flaml import AutoML
 from sklearn.model_selection import train_test_split
 
 from app.utils.reports_utils import generate_prediction_report
-from app.utils.s3_upload import download_file_from_s3, upload_file_to_s3
+from app.utils.s3_utils import download_file_from_s3, upload_file_to_s3
 
 
 def train_from_s3(user_id: str, s3_dataset_path: str, target_column: str, s3_model_output_path: str):

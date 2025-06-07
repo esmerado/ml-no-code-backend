@@ -38,3 +38,9 @@ def get_user_models(user_id: str):
     models = supabase.table("models").select("*").eq("user_id", user_id).execute()
 
     return models.data if models.data else []
+
+
+def get_model(model_id: str):
+    model = supabase.table("models").select("*").eq("model_id", model_id).execute()
+
+    return model.data[0] if model.data else None

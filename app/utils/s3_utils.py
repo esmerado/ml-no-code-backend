@@ -48,13 +48,11 @@ def download_file_from_s3(s3_key: str, local_path: str):
         region_name="eu-west-3"
     )
     try:
-        print(f"📦 Descargando de: s3://{BUCKET_NAME}/{s3_key} a {local_path}")
         s3.download_file(
             Bucket=BUCKET_NAME,
             Key=s3_key,
             Filename=local_path
         )
-        print("✅ Descarga completada")
 
     except Exception as e:
         raise RuntimeError(f"❌ Error al descargar de S3: {e}")

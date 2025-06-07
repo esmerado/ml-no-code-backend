@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from supabase import create_client
 
 from app.utils.auth import verify_token
-from app.utils.s3_upload import bytes_to_fileobj
+from app.utils.s3_utils import bytes_to_fileobj
 
 app = FastAPI()
 router = APIRouter()
