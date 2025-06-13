@@ -13,7 +13,7 @@ from supabase import create_client
 from app.services.automl_service import train_from_s3, predict_from_s3
 from app.utils.auth import verify_token
 from app.utils.s3_utils import download_file_from_s3
-from app.utils.supabase_utils import save_model_metadata, get_model
+from app.utils.supabase_utils import save_model_metadata, get_model, get_predictions
 
 router = APIRouter()
 
@@ -88,15 +88,23 @@ def train(req: TrainRequest,
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class PredictRequest(BaseModel):
-    model_s3_path: str
-    input_data_s3_path: str
+class PredictInput(BaseModel):
+    s3_dataset_path: str
 
 
-@router.post("/api/automl-predict")
-def predict(req: PredictRequest):
+@router.post("/api/automl-predict/{model_id}")
+def predict(model_id: str, payload: PredictInput, user: dict = Depends(verify_token)):
     try:
-        results = predict_from_s3(req.model_s3_path, req.input_data_s3_path)
+        user_id = user.get("id")
+        model_data = get_model(model_id)
+
+        if not model_data:
+            raise HTTPException(status_code=404, detail="Model not found")
+
+        model_s3_path = model_data.get("model_s3_path")
+        s3_dataset_path = f"freemium/{user_id}/{payload.s3_dataset_path}"
+
+        results = predict_from_s3(model_id, model_s3_path, s3_dataset_path)
         return {"predictions": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -121,6 +129,26 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
         table_data = json.loads(table_df.to_json(orient="records"))
 
         return {"model_data": model_data, "table_data": table_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/get-model-predictions/{model_id}")
+def get_model_info(model_id: str, user: dict = Depends(verify_token)):
+    try:
+        predictions = get_predictions(model_id)
+        print(f"Fetching predictions for predictions: {predictions}")
+        if not predictions:
+            raise HTTPException(status_code=404, detail="Model not found")
+
+        s3_key = predictions.get("prediction_path")
+        local_path = f"/tmp/{model_id}_data.csv"
+        download_file_from_s3(s3_key, local_path)
+
+        table_df = pd.read_csv(local_path)
+        table_predictions = json.loads(table_df.to_json(orient="records"))
+
+        return {"predictions": table_predictions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

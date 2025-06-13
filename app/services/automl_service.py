@@ -1,5 +1,4 @@
 import pickle
-import uuid
 
 import pandas as pd
 from flaml import AutoML
@@ -71,24 +70,21 @@ def train_from_s3(user_id: str, model_id: str, s3_dataset_path: str, target_colu
     return model_id, task_type, metrics, df_test, model_output_path, data_output_path
 
 
-def predict_from_s3(model_s3_path: str, input_data_s3_path: str):
-    # 1. Descargar modelo
-    local_model_path = f"/tmp/{uuid.uuid4()}.pkl"
+def predict_from_s3(model_id: str, model_s3_path: str, input_data_s3_path: str):
+    local_model_path = f"/tmp/{model_id}.pkl"
+
     download_file_from_s3(model_s3_path, local_model_path)
 
     with open(local_model_path, "rb") as f:
         model = pickle.load(f)
 
-    # 2. Descargar dataset de entrada
-    local_input_path = f"/tmp/{uuid.uuid4()}.csv"
+    local_input_path = f"/tmp/{model_id}.csv"
     download_file_from_s3(input_data_s3_path, local_input_path)
 
     df = pd.read_csv(local_input_path)
 
-    # 3. Predecir
     predictions = model.predict(df)
 
-    # 4. Devolver resultados
     df_result = df.copy()
     df_result["Prediction"] = predictions
     df_result = df_result.replace([float('inf'), float('-inf')], None).where(pd.notnull(df_result), None)

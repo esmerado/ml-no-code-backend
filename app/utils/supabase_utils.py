@@ -42,7 +42,6 @@ def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path,
 
 
 def get_user_data(user_id: str):
-    # Get all models that the user has trained
     user = supabase.table("users").select("*").eq("id", user_id).execute()
 
     return user.data[0] if user.data else None
@@ -58,3 +57,20 @@ def get_model(model_id: str):
     model = supabase.table("models").select("*").eq("model_id", model_id).execute()
 
     return model.data[0] if model.data else None
+
+
+def get_predictions(model_id: str):
+    model = supabase.table("predictions").select("*").eq("model_id", model_id).execute()
+
+    return model.data[0] if model.data else None
+
+
+def save_model_prediction(model_id: str, prediction_path: str):
+    print("Saving model prediction to Supabase...")
+
+    data = {
+        "model_id": model_id,
+        "prediction_path": prediction_path
+    }
+
+    supabase.table("predictions").insert(data).execute()

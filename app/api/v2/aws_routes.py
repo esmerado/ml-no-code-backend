@@ -6,12 +6,13 @@ import traceback
 from uuid import uuid4
 
 import boto3
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, APIRouter
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, APIRouter, Form
 from pydantic import BaseModel
 from supabase import create_client
 
 from app.utils.auth import verify_token
 from app.utils.s3_utils import bytes_to_fileobj
+from app.utils.supabase_utils import save_model_prediction
 
 app = FastAPI()
 router = APIRouter()
@@ -41,14 +42,15 @@ supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 @router.post("/api/upload")
 async def upload_dataset(
         file: UploadFile = File(...),
-        target_column: str = "target",
-        user: dict = Depends(verify_token)
+        user: dict = Depends(verify_token),
+        model_id: str = None
 ):
     user_id = user.get("id")
 
-    uuid = uuid4()
+    if model_id is None:
+        model_id = str(uuid4())
 
-    file_id = f"freemium/{user_id}/{uuid}_{file.filename}"
+    file_id = f"freemium/{user_id}/{model_id}_{file.filename}"
     contents = await file.read()
 
     try:
@@ -62,7 +64,34 @@ async def upload_dataset(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Upload S3 failed: {e}")
 
-    return {"message": "Archivo subido", "s3_key": file_id, "model_id": uuid}
+    return {"message": "Archivo subido", "s3_key": file_id, "model_id": model_id}
+
+
+@router.post("/api/upload-prediction")
+async def upload_dataset(
+        file: UploadFile = File(...),
+        user: dict = Depends(verify_token),
+        model_id: str = Form(...),
+):
+    user_id = user.get("id")
+    print("Uploading prediction file for user:", user_id, "and model:", model_id)
+    file_id = f"freemium/{user_id}/{model_id}_{file.filename}"
+    contents = await file.read()
+
+    try:
+        s3.upload_fileobj(
+            Fileobj=bytes_to_fileobj(contents),
+            Bucket=BUCKET_NAME,
+            Key=file_id
+        )
+
+        save_model_prediction(model_id, file_id)
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload S3 failed: {e}")
+
+    return {"message": "Archivo subido", "s3_key": file_id, "model_id": model_id}
 
 
 class TrainRequest(BaseModel):

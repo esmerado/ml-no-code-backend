@@ -31,7 +31,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme
         user_type = user.get("user_type")
 
         verified_payload["user_type"] = user_type
-        
+
         return verified_payload
     except JWTError:
         raise HTTPException(
