@@ -95,6 +95,47 @@ def add_to_waitlist(request: AddToWaitlistRequest):
     return {"message": "Email added to waitlist"}
 
 
+class FeedbackRequest(BaseModel):
+    message: str = None
+
+
+@router.post("/feedback")
+def user_feedback(request: FeedbackRequest, user: dict = Depends(sync_verify_token)):
+    message = request.message
+    user_id = user.get("id")
+
+    res = supabase.table("feedback").insert({"user_id": user_id, "message": message}).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to add to feeback")
+
+    return {"message": "Feedback added successfully"}
+
+
+class EnterpriseFormRequest(BaseModel):
+    email: str = None
+    message: str = None
+    name: str = None
+
+
+@router.post("/form-enterprise")
+def user_feedback(request: EnterpriseFormRequest):
+    message = request.message
+    email = request.email
+    name = request.name
+
+    res = supabase.table("formulario_empresas").insert({
+        "email": email,
+        "message": message,
+        "name": name
+    }).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to add to form information")
+
+    return {"message": "Form information added successfully"}
+
+
 @router.get("/consents")
 def get_models(user: dict = Depends(verify_token)):
     user_id = user.get("id")
