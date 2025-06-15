@@ -47,10 +47,28 @@ def get_user_data(user_id: str):
     return user.data[0] if user.data else None
 
 
+def get_user_data_by_email(user_email: str):
+    user = supabase.table("users").select("*").eq("email", user_email).execute()
+
+    return user.data[0] if user.data else None
+
+
+def get_user_consents(user_id: str):
+    user = supabase.table("users").select("cookies, terms").eq("id", user_id).execute()
+
+    return user.data[0] if user.data else None
+
+
 def get_user_models(user_id: str):
     models = supabase.table("models").select("*").eq("user_id", user_id).execute()
 
     return models.data if models.data else []
+
+
+def get_user_models_number(user_id: str):
+    models = supabase.table("models").select("model_id").eq("user_id", user_id).execute()
+
+    return len(models.data) if models.data else 0
 
 
 def get_model(model_id: str):

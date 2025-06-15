@@ -12,7 +12,7 @@ from supabase import create_client
 
 from app.utils.auth import verify_token
 from app.utils.s3_utils import bytes_to_fileobj
-from app.utils.supabase_utils import save_model_prediction
+from app.utils.supabase_utils import save_model_prediction, get_user_models_number
 
 app = FastAPI()
 router = APIRouter()
@@ -46,6 +46,15 @@ async def upload_dataset(
         model_id: str = None
 ):
     user_id = user.get("id")
+    user_type = user.get("user_type")
+    print('user type:', user_type)
+    if user_type == "FREEMIUM":
+        models_number = get_user_models_number(user_id)
+        if models_number >= 1:
+            raise HTTPException(
+                status_code=403,
+                detail="Has alcanzado el límite de modelos permitidos para tu cuenta freemium."
+            )
 
     if model_id is None:
         model_id = str(uuid4())

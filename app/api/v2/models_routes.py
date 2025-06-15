@@ -9,7 +9,7 @@ router = APIRouter()
 
 # DEPRECATED: This code is for an older version of the API.
 
-@router.get("/api/user/get_models")
+@router.get("/api/user/get-models")
 def get_models(user: dict = Depends(verify_token)):
     user_id = user.get("id")
 

@@ -7,7 +7,8 @@ from fastapi import HTTPException, Depends, APIRouter
 from pydantic import BaseModel
 from supabase import create_client
 
-from app.utils.auth import verify_token
+from app.utils.auth import sync_verify_token, verify_token
+from app.utils.supabase_utils import get_user_consents
 
 load_dotenv()
 
@@ -20,10 +21,10 @@ supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
 @router.post("/sync")
-async def sync_user(user: dict = Depends(verify_token)):
+async def sync_user(user: dict = Depends(sync_verify_token)):
     user_id = user.get("id")
     email = user.get("email")
-    existing = supabase.table("users").select("*").eq("email", email).execute()
+    existing = supabase.table("users").select("*").eq("id", user_id).execute()
 
     if existing.data:
         return {
@@ -32,10 +33,8 @@ async def sync_user(user: dict = Depends(verify_token)):
             "user_type": existing.data[0]["user_type"]
         }
 
-    print("🔐 User", user)
-    res = supabase.table("users").insert({"id": user_id, "email": email}).execute()
+    res = supabase.table("users").insert({"id": user_id, "email": email, "terms": True, "cookies": True}).execute()
 
-    print("res", res)
     if not res.data:
         raise HTTPException(status_code=500, detail="Failed to register user")
 
@@ -44,6 +43,30 @@ async def sync_user(user: dict = Depends(verify_token)):
         "user_id": res.data[0]["id"],
         "user_type": res.data[0]["user_type"]
     }
+
+
+class CookieConsentUpdate(BaseModel):
+    cookies: bool
+    terms: bool
+
+
+@router.post("/consent")
+async def update_consent(
+        payload: CookieConsentUpdate,
+        user: dict = Depends(verify_token)
+):
+    user_id = user.get("id")
+    update_data = {
+        "cookies": payload.cookies,
+        "terms": payload.terms
+    }
+
+    response = supabase.table("users").update(update_data).eq("id", user_id).execute()
+
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Error al actualizar consentimiento")
+
+    return {"message": "Consentimiento actualizado"}
 
 
 class AddToWaitlistRequest(BaseModel):
@@ -70,3 +93,16 @@ def add_to_waitlist(request: AddToWaitlistRequest):
         raise HTTPException(status_code=500, detail="Failed to add to waitlist")
 
     return {"message": "Email added to waitlist"}
+
+
+@router.get("/consents")
+def get_models(user: dict = Depends(verify_token)):
+    user_id = user.get("id")
+
+    try:
+        data = get_user_consents(user_id)
+        print(f"Fetched models for user {user_id}: {data}")
+        return {"terms": data.get("terms", False), "cookies": data.get("cookies", False)}
+    except Exception as e:
+        print(f"Error fetching models for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")

@@ -161,14 +161,13 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
         if not user_id:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        # Delete model metadata from Supabase
+        supabase.table("predictions").delete().eq("model_id", model_id).execute()
+
         supabase.table("models").delete().eq("model_id", model_id).execute()
 
-        # Optionally delete the model file from S3
         s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/{model_id}.pkl"
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 
-        # Delete the model data from S3
         data_s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/df_test_{model_id}.csv"
         s3.delete_object(Bucket=BUCKET_NAME, Key=data_s3_key)
 
