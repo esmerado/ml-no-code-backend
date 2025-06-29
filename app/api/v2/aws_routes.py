@@ -47,7 +47,7 @@ async def upload_dataset(
 ):
     user_id = user.get("id")
     user_type = user.get("user_type")
-    print('user type:', user_type)
+
     if user_type == "FREEMIUM":
         models_number = get_user_models_number(user_id)
         if models_number >= 1:
@@ -82,8 +82,9 @@ async def upload_dataset(
         user: dict = Depends(verify_token),
         model_id: str = Form(...),
 ):
+    print('entro', model_id)
     user_id = user.get("id")
-    print("Uploading prediction file for user:", user_id, "and model:", model_id)
+
     file_id = f"freemium/{user_id}/{model_id}_{file.filename}"
     contents = await file.read()
 
@@ -93,8 +94,9 @@ async def upload_dataset(
             Bucket=BUCKET_NAME,
             Key=file_id
         )
-
+        print('llego aquí', model_id)
         save_model_prediction(model_id, file_id)
+        print('se guardó la predicción en la base de datos')
 
     except Exception as e:
         traceback.print_exc()
@@ -150,7 +152,6 @@ def start_training(
         )
         result = json.loads(response["Payload"].read())
         result_body = json.loads(result["body"])
-        print("result_body", result_body)
         data_body = {
             "user_id": "a6b47208-ae41-455c-bdcd-e48a7204eec1",
             "status": result_body["status"],

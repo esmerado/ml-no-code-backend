@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from supabase import create_client
 
+from app.api.v2.deepseek_routes import summarize_predictions, PredictionResults
 from app.services.automl_service import train_from_s3, predict_from_s3
 from app.utils.auth import verify_token
 from app.utils.s3_utils import download_file_from_s3
@@ -93,7 +94,7 @@ class PredictInput(BaseModel):
 
 
 @router.post("/api/automl-predict/{model_id}")
-def predict(model_id: str, payload: PredictInput, user: dict = Depends(verify_token)):
+async def predict(model_id: str, payload: PredictInput, user: dict = Depends(verify_token)):
     try:
         user_id = user.get("id")
         model_data = get_model(model_id)
@@ -105,7 +106,10 @@ def predict(model_id: str, payload: PredictInput, user: dict = Depends(verify_to
         s3_dataset_path = f"freemium/{user_id}/{payload.s3_dataset_path}"
 
         results = predict_from_s3(model_id, model_s3_path, s3_dataset_path)
-        return {"predictions": results}
+
+        payload = PredictionResults(data=results)
+        summary_res = await summarize_predictions(model_id, payload, user)
+        return {"predictions": results, "summary": summary_res.get("summary")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -137,7 +141,6 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
 def get_model_info(model_id: str, user: dict = Depends(verify_token)):
     try:
         predictions = get_predictions(model_id)
-        print(f"Fetching predictions for predictions: {predictions}")
         if not predictions:
             raise HTTPException(status_code=404, detail="Model not found")
 
@@ -148,7 +151,24 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
         table_df = pd.read_csv(local_path)
         table_predictions = json.loads(table_df.to_json(orient="records"))
 
-        return {"predictions": table_predictions}
+        summary_text = ""
+        summary_s3_key = predictions.get("summary_path")
+
+        if summary_s3_key:
+            summary_local_path = f"/tmp/{model_id}_summary.md"
+            download_file_from_s3(summary_s3_key, summary_local_path)
+
+            try:
+                with open(summary_local_path, "r", encoding="utf-8") as f:
+                    summary_text = f.read()
+            except Exception:
+                summary_text = ""
+
+        return {
+            "predictions": table_predictions,
+            "summary": summary_text
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -156,7 +176,6 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
 @router.delete("/api/remove-model/{model_id}")
 def get_model_info(model_id: str, user: dict = Depends(verify_token)):
     try:
-        print(f"Deleting model with ID: {model_id}")
         user_id = user.get("id")
         if not user_id:
             raise HTTPException(status_code=401, detail="Unauthorized")
@@ -169,6 +188,9 @@ def get_model_info(model_id: str, user: dict = Depends(verify_token)):
         s3.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
 
         data_s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/df_test_{model_id}.csv"
+        s3.delete_object(Bucket=BUCKET_NAME, Key=data_s3_key)
+
+        data_s3_key = f"{FREEMIUM_BUCKET_NAME}/{user_id}/{model_id}_summary.md"
         s3.delete_object(Bucket=BUCKET_NAME, Key=data_s3_key)
 
         return {"message": "Model deleted successfully"}

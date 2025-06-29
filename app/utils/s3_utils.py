@@ -23,8 +23,9 @@ def upload_file_to_s3(file_bytes: bytes, filename: str, folder: str = "datasets"
     )
 
     key = f"{folder}/{filename}"
-
+    print(f"Subiendo archivo a S3: {key}")
     try:
+        print(f"Subiendo archivo a S3: {key} con tamaño {len(file_bytes)} bytes")
         s3.put_object(
             Bucket=BUCKET_NAME,
             Key=key,
@@ -36,7 +37,6 @@ def upload_file_to_s3(file_bytes: bytes, filename: str, folder: str = "datasets"
         traceback.print_exc()
         raise RuntimeError(f"❌ Fallo al subir a S3: {e}")
 
-    print(f"✅ Archivo subido a s3://{BUCKET_NAME}/{key}")
     return key
 
 

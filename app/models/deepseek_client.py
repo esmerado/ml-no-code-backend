@@ -41,5 +41,4 @@ class DeepSeekClient:
             return response.choices[0].message.content.strip()
 
         except Exception as e:
-            print("❌ Error al consultar DeepSeek:", e)
             return "Hubo un problema al generar la respuesta con DeepSeek."

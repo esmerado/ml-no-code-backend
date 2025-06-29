@@ -19,7 +19,6 @@ async def machine_learning_model(
     # Comprobación de que no tenga valores nulos
     missing_before = df.isnull().sum().sum()
     if missing_before > 0:
-        print(f"⚠️ Se encontraron {missing_before} valores nulos. Rellenando con la mediana/moda...")
         for col in df.columns:
             if df[col].isnull().any():
                 if df[col].dtype in [np.float64, np.int64]:
@@ -60,7 +59,6 @@ async def machine_learning_model(
                 fold=3,
             )
         except Exception as e:
-            print(f"❌ Error en setup_regression: {e}")
             raise
         best_model = compare_models_regression()
         results = pull_regression()

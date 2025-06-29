@@ -78,7 +78,6 @@ class AddToWaitlistRequest(BaseModel):
 def add_to_waitlist(request: AddToWaitlistRequest):
     email = request.email
     suggestions = request.suggestions
-    print("Adding to waitlist:", email, suggestions)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
 
@@ -142,8 +141,6 @@ def get_models(user: dict = Depends(verify_token)):
 
     try:
         data = get_user_consents(user_id)
-        print(f"Fetched models for user {user_id}: {data}")
         return {"terms": data.get("terms", False), "cookies": data.get("cookies", False)}
     except Exception as e:
-        print(f"Error fetching models for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

@@ -11,8 +11,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
 def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path, metrics, name, task_type):
-    print("Saving model metadata to Supabase...")
-
     data = {
         "name": name,
         "user_id": user_id,
@@ -22,7 +20,6 @@ def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path,
         "model_s3_data_path": data_s3_path,
         "model_type": task_type,
     }
-    print("metrics:", metrics, )
     if task_type == "classification":
         data.update({
             "accuracy": metrics.get("accuracy"),
@@ -37,7 +34,6 @@ def save_model_metadata(user_id, model_id, target_column, s3_path, data_s3_path,
             "r2": metrics.get("r2"),
         })
 
-    print("Saving model metadata:", data)
     supabase.table("models").insert(data).execute()
 
 
@@ -77,6 +73,14 @@ def get_model(model_id: str):
     return model.data[0] if model.data else None
 
 
+def set_predictions_summary(model_id: str, s3_key: str):
+    data = {
+        "summary_path": s3_key
+    }
+
+    supabase.table("predictions").update(data).eq("model_id", model_id).execute()
+
+
 def get_predictions(model_id: str):
     model = supabase.table("predictions").select("*").eq("model_id", model_id).execute()
 
@@ -84,8 +88,6 @@ def get_predictions(model_id: str):
 
 
 def save_model_prediction(model_id: str, prediction_path: str):
-    print("Saving model prediction to Supabase...")
-
     data = {
         "model_id": model_id,
         "prediction_path": prediction_path

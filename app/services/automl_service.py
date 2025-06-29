@@ -49,7 +49,6 @@ def train_from_s3(user_id: str, model_id: str, s3_dataset_path: str, target_colu
     data_output_path = f"{s3_model_output_path}/{local_test_name}"
     test_filename = data_output_path.split("/")[-1]
     test_folder = "/".join(data_output_path.split("/")[:-1])
-    print(f"Subiendo df_test a S3: {data_output_path}")
     upload_file_to_s3(df_test_bytes, test_filename, test_folder)
 
     local_model_path = f"/tmp/{model_id}.pkl"

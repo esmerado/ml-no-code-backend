@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v2 import automl_routes
 from app.api.v2 import aws_routes
+from app.api.v2 import deepseek_routes
 from app.api.v2 import models_routes
 from app.api.v2 import users_routes
 
@@ -27,3 +28,4 @@ app.include_router(users_routes.router, prefix="/ml_backend/v2")
 app.include_router(aws_routes.router, prefix="/ml_backend/v2")
 app.include_router(models_routes.router, prefix="/ml_backend/v2")
 app.include_router(automl_routes.router, prefix="/ml_backend/v2")
+app.include_router(deepseek_routes.router, prefix="/ml_backend/v2")
